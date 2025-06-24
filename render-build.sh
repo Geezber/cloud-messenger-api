@@ -1,13 +1,20 @@
 #!/bin/bash
 # render-build.sh
-set -e  # Exit immediately if any command fails
+set -ex  # Enable debug output and exit on error
 
-# Upgrade pip and install wheel
+echo "=== Starting build process ==="
+echo "Current directory: $(pwd)"
+echo "Files in directory:"
+ls -la
+
+echo "=== Updating pip ==="
 python -m pip install --upgrade pip
+
+echo "=== Installing wheel ==="
 pip install wheel
 
-# Install requirements
+echo "=== Installing requirements ==="
 pip install -r requirements.txt
 
-# Optional: Print installed packages for debugging
+echo "=== Installed packages ==="
 pip freeze
