@@ -1,24 +1,22 @@
 import os
-import re
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# Configure database URI
+# Handle database connection
 def get_database_uri():
-    # Get DATABASE_URL from environment (provided by Render)
+    # Get DATABASE_URL from environment
     uri = os.environ.get('DATABASE_URL', '')
     
     # Fix common connection string format issues
     if uri.startswith("postgres://"):
-        # Convert to SQLAlchemy-compatible format with psycopg v3 driver
-        uri = uri.replace("postgres://", "postgresql+psycopg://", 1)
+        # Convert to SQLAlchemy-compatible format
+        uri = uri.replace("postgres://", "postgresql://", 1)
     
-    # Fallback to SQLite for local development if no URI provided
+    # Fallback to SQLite for local development
     if not uri:
-        print("WARNING: Using SQLite database for local development")
+        print("Using SQLite database for local development")
         basedir = os.path.abspath(os.path.dirname(__file__))
         uri = f'sqlite:///{os.path.join(basedir, "local.db")}'
     
@@ -28,14 +26,14 @@ def get_database_uri():
 app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,  # Helps with connection recycling
-    'pool_recycle': 300,    # Recycle connections every 5 minutes
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
 }
 
 # Initialize database
 db = SQLAlchemy(app)
 
-# Define database model (example)
+# Define database model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -45,21 +43,20 @@ class User(db.Model):
         return f'<User {self.username}>'
 
 # Create database tables
-@app.before_first_request
-def create_tables():
+with app.app_context():
     db.create_all()
 
 # Basic route
 @app.route('/')
 def home():
-    return 'Server is running successfully!'
+    return 'Server running successfully with psycopg-binary 3.2.9!'
 
-# Health check endpoint
+# Health check
 @app.route('/health')
 def health_check():
     return 'OK', 200
 
-# Entry point for running the application
+# Entry point
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
