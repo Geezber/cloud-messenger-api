@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Handle database connection
+# Configure database connection
 def get_database_uri():
     # Get DATABASE_URL from environment
     uri = os.environ.get('DATABASE_URL', '')
@@ -49,7 +49,7 @@ with app.app_context():
 # Basic route
 @app.route('/')
 def home():
-    return 'Server running successfully with psycopg-binary 3.2.9!'
+    return 'Server running successfully with Python 3.13!'
 
 # Health check
 @app.route('/health')
