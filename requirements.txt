@@ -3,4 +3,4 @@ gunicorn==22.0.0
 flask-sqlalchemy==3.1.1
 psycopg-binary==3.2.9
 sqlalchemy==2.0.28
-greenlet==3.0.3  # Required for SQLAlchemy compatibility
+# greenlet will be installed automatically as a dependency
