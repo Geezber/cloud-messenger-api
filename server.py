@@ -1,39 +1,43 @@
-import os
-from flask import Flask
+# SQLAlchemy/Python 3.13 compatibility patch
+import sys
+import importlib.util
+
+if sys.version_info >= (3, 13):
+    # Apply monkey patch before importing SQLAlchemy
+    from sqlalchemy.util import langhelpers
+    
+    class PatchedTypingOnly:
+        __slots__ = ()
+        def __init_subclass__(cls, **kwargs):
+            allowed = {
+                "__slots__", "__doc__", "__abstract__", 
+                "__firstlineno__", "__static_attributes__",
+                "__annotations__", "__module__", "__dict__",
+                "__weakref__"
+            }
+            for key in cls.__dict__:
+                if key not in allowed and not key.startswith(("_abc_", "__orig_bases__")):
+                    raise AssertionError(
+                        f"Class {cls} has prohibited attribute: {key}"
+                    )
+            super().__init_subclass__(**kwargs)
+    
+    langhelpers.TypingOnly = PatchedTypingOnly
+    sys.modules['sqlalchemy.util.langhelpers'] = langhelpers
+
+# --- Original Application Code Below ---
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Configure database connection
-def get_database_uri():
-    # Get DATABASE_URL from environment
-    uri = os.environ.get('DATABASE_URL', '')
-    
-    # Fix common connection string format issues
-    if uri.startswith("postgres://"):
-        # Convert to SQLAlchemy-compatible format
-        uri = uri.replace("postgres://", "postgresql://", 1)
-    
-    # Fallback to SQLite for local development
-    if not uri:
-        print("Using SQLite database for local development")
-        basedir = os.path.abspath(os.path.dirname(__file__))
-        uri = f'sqlite:///{os.path.join(basedir, "local.db")}'
-    
-    return uri
-
-# Configure application
-app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
+# Configure database - UPDATE THESE FOR YOUR PROJECT
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-}
 
-# Initialize database
 db = SQLAlchemy(app)
 
-# Define database model
+# Example Model - MODIFY FOR YOUR PROJECT
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -42,21 +46,20 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
-# Create database tables
-with app.app_context():
-    db.create_all()
-
-# Basic route
+# Example Route - MODIFY FOR YOUR PROJECT
 @app.route('/')
 def home():
-    return 'Server running successfully with Python 3.13!'
+    return jsonify({
+        "status": "success",
+        "message": "SQLAlchemy/Python 3.13 compatibility fix applied",
+        "python_version": sys.version,
+        "sqlalchemy_version": db.engine.dialect.dbapi.__version__  # Only works after db init
+    })
 
-# Health check
-@app.route('/health')
-def health_check():
-    return 'OK', 200
+# Initialize DB (careful in production)
+@app.before_first_request
+def create_tables():
+    db.create_all()
 
-# Entry point
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
