@@ -1,37 +1,41 @@
-# SQLAlchemy/Python 3.13 compatibility patch
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import sys
-import importlib.util
 
+# SQLAlchemy/Python 3.13 compatibility patch
 if sys.version_info >= (3, 13):
-    # Apply monkey patch before importing SQLAlchemy
-    from sqlalchemy.util import langhelpers
-    
-    class PatchedTypingOnly:
-        __slots__ = ()
-        def __init_subclass__(cls, **kwargs):
-            allowed = {
-                "__slots__", "__doc__", "__abstract__", 
-                "__firstlineno__", "__static_attributes__",
-                "__annotations__", "__module__", "__dict__",
-                "__weakref__"
-            }
-            for key in cls.__dict__:
-                if key not in allowed and not key.startswith(("_abc_", "__orig_bases__")):
-                    raise AssertionError(
-                        f"Class {cls} has prohibited attribute: {key}"
-                    )
-            super().__init_subclass__(**kwargs)
-    
-    langhelpers.TypingOnly = PatchedTypingOnly
-    sys.modules['sqlalchemy.util.langhelpers'] = langhelpers
+    try:
+        from sqlalchemy.util import langhelpers
+        
+        class PatchedTypingOnly:
+            __slots__ = ()
+            def __init_subclass__(cls, **kwargs):
+                allowed = {
+                    "__slots__", "__doc__", "__abstract__", 
+                    "__firstlineno__", "__static_attributes__",
+                    "__annotations__", "__module__", "__dict__",
+                    "__weakref__", "__qualname__"
+                }
+                for key in cls.__dict__:
+                    if key not in allowed and not key.startswith(("_abc_", "__orig_bases__")):
+                        raise AssertionError(
+                            f"Class {cls} has prohibited attribute: {key}"
+                        )
+                super().__init_subclass__(**kwargs)
+        
+        langhelpers.TypingOnly = PatchedTypingOnly
+        sys.modules['sqlalchemy.util.langhelpers'] = langhelpers
+        print("Applied SQLAlchemy 3.13 compatibility patch")
+    except ImportError:
+        print("SQLAlchemy compatibility patch not needed")
 
-# --- Original Application Code Below ---
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Configure database - UPDATE THESE FOR YOUR PROJECT
+# Configure database - UPDATE THIS FOR YOUR PROJECT
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -51,12 +55,12 @@ class User(db.Model):
 def home():
     return jsonify({
         "status": "success",
-        "message": "SQLAlchemy/Python 3.13 compatibility fix applied",
-        "python_version": sys.version,
-        "sqlalchemy_version": db.engine.dialect.dbapi.__version__  # Only works after db init
+        "message": "Application running",
+        "python_version": sys.version.split()[0],
+        "sqlalchemy_version": db.engine.dialect.dbapi.__version__
     })
 
-# Initialize DB (careful in production)
+# Initialize DB (use carefully in production)
 @app.before_first_request
 def create_tables():
     db.create_all()
