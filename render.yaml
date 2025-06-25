@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: flask-app
+    runtime: python
+    buildCommand: |
+      # Convert line endings to Unix format
+      sed -i 's/\r$//' build.sh
+      chmod +x build.sh
+      ./build.sh
+    startCommand: gunicorn server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
