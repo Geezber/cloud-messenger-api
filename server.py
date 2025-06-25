@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 # SQLAlchemy/Python 3.13 compatibility patch
 if sys.version_info >= (3, 13):
@@ -35,13 +40,13 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Configure database - UPDATE THIS FOR YOUR PROJECT
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+# Configure database - uses Render's DATABASE_URL environment variable
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db').replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Example Model - MODIFY FOR YOUR PROJECT
+# Example Model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -50,20 +55,26 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
-# Example Route - MODIFY FOR YOUR PROJECT
+# Health check route
 @app.route('/')
 def home():
     return jsonify({
         "status": "success",
         "message": "Application running",
         "python_version": sys.version.split()[0],
-        "sqlalchemy_version": db.engine.dialect.dbapi.__version__
+        "sqlalchemy_version": db.engine.dialect.dbapi.__version__ if db.engine else "N/A",
+        "database": app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0]  # Show database type
     })
 
-# Initialize DB (use carefully in production)
+# Initialize DB - remove in production if using migrations
 @app.before_first_request
-def create_tables():
-    db.create_all()
+def initialize_database():
+    try:
+        db.create_all()
+        print("Database tables created")
+    except Exception as e:
+        print(f"Database initialization error: {str(e)}")
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
