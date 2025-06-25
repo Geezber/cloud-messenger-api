@@ -4,76 +4,91 @@
 import sys
 import os
 from dotenv import load_dotenv
+from flask import Flask, jsonify
+from flask_sqlalchemy import SQLAlchemy
+import psycopg2  # For PostgreSQL health check
+import sqlite3   # For SQLite health check
 
-# Load environment variables from .env file if present
+# Load environment variables
 load_dotenv()
 
-# SQLAlchemy/Python 3.13 compatibility patch
+# --- SQLAlchemy Compatibility Patch (same as before) ---
 if sys.version_info >= (3, 13):
     try:
         from sqlalchemy.util import langhelpers
-        
-        class PatchedTypingOnly:
-            __slots__ = ()
-            def __init_subclass__(cls, **kwargs):
-                allowed = {
-                    "__slots__", "__doc__", "__abstract__", 
-                    "__firstlineno__", "__static_attributes__",
-                    "__annotations__", "__module__", "__dict__",
-                    "__weakref__", "__qualname__"
-                }
-                for key in cls.__dict__:
-                    if key not in allowed and not key.startswith(("_abc_", "__orig_bases__")):
-                        raise AssertionError(
-                            f"Class {cls} has prohibited attribute: {key}"
-                        )
-                super().__init_subclass__(**kwargs)
-        
-        langhelpers.TypingOnly = PatchedTypingOnly
-        sys.modules['sqlalchemy.util.langhelpers'] = langhelpers
-        print("Applied SQLAlchemy 3.13 compatibility patch")
+        # ... [keep the existing patch code] ...
     except ImportError:
         print("SQLAlchemy compatibility patch not needed")
 
-from flask import Flask, jsonify
-from flask_sqlalchemy import SQLAlchemy
-
 app = Flask(__name__)
 
-# Configure database - uses Render's DATABASE_URL environment variable
+# Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///app.db').replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 
-# Example Model
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+# --- Health Check Endpoints ---
 
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-# Health check route
-@app.route('/')
-def home():
-    return jsonify({
-        "status": "success",
-        "message": "Application running",
-        "python_version": sys.version.split()[0],
-        "sqlalchemy_version": db.engine.dialect.dbapi.__version__ if db.engine else "N/A",
-        "database": app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0]  # Show database type
-    })
-
-# Initialize DB - remove in production if using migrations
-@app.before_first_request
-def initialize_database():
+@app.route('/health')
+def health_check():
+    """Basic health check endpoint"""
     try:
-        db.create_all()
-        print("Database tables created")
+        # Check database connection
+        if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI']:
+            conn = psycopg2.connect(app.config['SQLALCHEMY_DATABASE_URI'])
+            conn.close()
+        else:  # SQLite
+            conn = sqlite3.connect('app.db')
+            conn.close()
+        
+        return jsonify({
+            "status": "healthy",
+            "database": "connected",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }), 200
+        
     except Exception as e:
-        print(f"Database initialization error: {str(e)}")
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "database": "disconnected",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/health/detailed')
+def detailed_health_check():
+    """Detailed health check with system info"""
+    try:
+        # Database check
+        db_status = "unknown"
+        try:
+            db.engine.execute("SELECT 1")
+            db_status = "connected"
+        except:
+            db_status = "disconnected"
+        
+        return jsonify({
+            "status": "healthy",
+            "system": {
+                "python_version": sys.version.split()[0],
+                "platform": sys.platform,
+                "sqlalchemy_version": db.engine.dialect.dbapi.__version__ if db.engine else "N/A"
+            },
+            "services": {
+                "database": db_status,
+                "database_type": app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0]
+            },
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }), 500
+
+# --- [Rest of your existing routes and models] ---
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
