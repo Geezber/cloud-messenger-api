@@ -8,6 +8,7 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import psycopg2  # For PostgreSQL health check
 import sqlite3   # For SQLite health check
+import datetime  # Add this at the top with other imports
 
 # Load environment variables
 load_dotenv()
