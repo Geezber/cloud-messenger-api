@@ -1,6 +1,11 @@
-flask==3.0.2
-gunicorn==22.0.0
-flask-sqlalchemy==3.1.1
-psycopg-binary==3.2.9
-sqlalchemy==2.0.29
-# greenlet will be installed automatically as a dependency
+# Core Flask
+Flask==3.0.2
+Flask-SQLAlchemy==3.1.1
+gunicorn==21.2.0
+
+# SQLAlchemy with 3.13 compatibility
+sqlalchemy>=2.0.29
+
+# Add other dependencies below
+# psycopg2-binary==2.9.9  # If using PostgreSQL
+# python-dotenv==1.0.0   # For environment variables
